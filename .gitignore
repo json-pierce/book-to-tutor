@@ -1,0 +1,21 @@
+# Derived knowledge base and tutor state -- never commit (copyrighted source)
+/kb/
+/state/
+
+# Source books -- never commit
+*.epub
+*.pdf
+*.mobi
+*.azw3
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
