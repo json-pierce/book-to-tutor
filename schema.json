@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/json-pierce/book-to-tutor/schema.json",
+  "title": "Book-to-Tutor knowledge base",
+  "description": "Machine-readable contract for a single book's knowledge base (KB). Defined by Section 8 of book_to_tutor_spec.md. Root is one whole-book KB: a book manifest, its chapter tier (renders human summary A), and its concept tier (the atoms; renders machine KB B).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["book_manifest", "chapters", "concepts"],
+  "properties": {
+    "book_manifest": { "$ref": "#/$defs/book_manifest" },
+    "chapters": {
+      "type": "array",
+      "description": "Chapter tier: one entry per chapter.",
+      "items": { "$ref": "#/$defs/chapter" }
+    },
+    "concepts": {
+      "type": "array",
+      "description": "Concept tier: one entry per atom.",
+      "items": { "$ref": "#/$defs/concept" }
+    }
+  },
+  "$defs": {
+    "author": {
+      "type": "object",
+      "description": "Structured author name. Byline order is preserved by the enclosing array and is never alphabetized; display format is a rendering concern.",
+      "additionalProperties": false,
+      "required": ["family_name", "given_names"],
+      "properties": {
+        "family_name": { "type": "string" },
+        "given_names": { "type": "string" }
+      }
+    },
+
+    "book_manifest": {
+      "type": "object",
+      "description": "Section 8.1 -- one per book.",
+      "additionalProperties": false,
+      "required": [
+        "book_id",
+        "title",
+        "authors",
+        "book_type",
+        "type_flags",
+        "classification_evidence",
+        "classification_confidence",
+        "schema_version"
+      ],
+      "properties": {
+        "book_id": {
+          "type": "string",
+          "description": "Primary key; synthesis join key. Internal slug, e.g. mckinney-python-data-analysis-3e. Not the ISBN."
+        },
+        "isbn": {
+          "type": "string",
+          "description": "Citation/lookup only. Absent for public-domain and older books."
+        },
+        "title": {
+          "type": "string",
+          "description": "Classification, citation."
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "Split from title on the colon; internal commas are safe in their own field."
+        },
+        "edition": {
+          "type": "string",
+          "description": "Citation; distinguishes re-runs of different editions."
+        },
+        "year": {
+          "type": "integer",
+          "description": "Citation."
+        },
+        "authors": {
+          "type": "array",
+          "description": "Citation. Byline order preserved, never alphabetized.",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/author" }
+        },
+        "book_type": {
+          "type": "string",
+          "description": "The gate. Exactly one primary type per book.",
+          "enum": ["reference", "argument", "practical"]
+        },
+        "type_flags": {
+          "type": "array",
+          "description": "The gate. Orthogonal exception flags; usually empty ([]).",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["hybrid", "anthology", "scholarly"]
+          }
+        },
+        "classification_evidence": {
+          "type": "string",
+          "description": "Gate report (ToC shape, exercises, citation density)."
+        },
+        "classification_confidence": {
+          "type": "number",
+          "description": "Gate escalation. 0-1 confidence scale.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "schema_version": {
+          "type": "string",
+          "description": "Reprocessing decisions across books; provenance stamp."
+        }
+      }
+    },
+
+    "chapter": {
+      "type": "object",
+      "description": "Section 8.2 -- one per chapter; renders human summary A.",
+      "additionalProperties": false,
+      "required": [
+        "chapter_id",
+        "chapter_number",
+        "chapter_title",
+        "chapter_summary",
+        "anchor",
+        "contained_concept_ids",
+        "source_word_count",
+        "schema_version"
+      ],
+      "properties": {
+        "chapter_id": {
+          "type": "string",
+          "description": "FK target for concepts."
+        },
+        "chapter_number": {
+          "type": "integer",
+          "description": "Ordering; no-silent-drops check."
+        },
+        "chapter_title": {
+          "type": "string",
+          "description": "Traceability, citation."
+        },
+        "chapter_summary": {
+          "type": "string",
+          "description": "Synthesized. Human summary A."
+        },
+        "anchor": {
+          "type": "string",
+          "description": "Traceability check. Chapter+section string (epub page numbers are unstable; section-level is enough to find the source)."
+        },
+        "contained_concept_ids": {
+          "type": "array",
+          "description": "Links chapter tier to concept tier.",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "source_word_count": {
+          "type": "integer",
+          "description": "Expected-ratio guardrail (reproducible ratio check)."
+        },
+        "schema_version": {
+          "type": "string",
+          "description": "Provenance stamp."
+        }
+      }
+    },
+
+    "concept": {
+      "type": "object",
+      "description": "Section 8.3 -- the atom; renders machine KB B.",
+      "additionalProperties": false,
+      "required": [
+        "concept_id",
+        "concept_name",
+        "concept_type",
+        "definition",
+        "prerequisites",
+        "difficulty",
+        "question_seeds",
+        "anchor",
+        "chapter_id",
+        "schema_version"
+      ],
+      "properties": {
+        "concept_id": {
+          "type": "string",
+          "description": "State-file key; synthesis join key."
+        },
+        "concept_name": {
+          "type": "string",
+          "description": "The author anchor; teach, quiz, cite."
+        },
+        "concept_type": {
+          "type": "string",
+          "description": "Tutor picks teach/quiz style by type.",
+          "enum": ["definitional", "procedural", "propositional", "relational"]
+        },
+        "definition": {
+          "type": "string",
+          "description": "Synthesized. Teach; retrieve-not-recall answers."
+        },
+        "prerequisites": {
+          "type": "array",
+          "description": "Teaching order; closure check. List of concept_id; may be empty.",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "related_concept_ids": {
+          "type": "array",
+          "description": "Names the two endpoints a relational atom links. Only present when concept_type = relational.",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "worked_example": {
+          "type": "string",
+          "description": "Optional. Teach; apply-level practice."
+        },
+        "common_misconception": {
+          "type": "string",
+          "description": "Optional. Quiz distractors; teach-back correction."
+        },
+        "difficulty": {
+          "type": "string",
+          "description": "Placement, sequencing, quiz calibration.",
+          "enum": ["intro", "core", "advanced"]
+        },
+        "question_seeds": {
+          "type": "array",
+          "description": "Quiz; teach-back prompts. Capped at 3 (seeds are cheap to generate at study time).",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": { "type": "string" }
+        },
+        "anchor": {
+          "type": "string",
+          "description": "Traceability; source-anchored fidelity. Chapter+section string."
+        },
+        "chapter_id": {
+          "type": "string",
+          "description": "FK back to container."
+        },
+        "schema_version": {
+          "type": "string",
+          "description": "Provenance stamp."
+        }
+      },
+      "if": {
+        "properties": {
+          "concept_type": { "const": "relational" }
+        },
+        "required": ["concept_type"]
+      },
+      "then": {
+        "required": ["related_concept_ids"],
+        "properties": {
+          "related_concept_ids": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    }
+  }
+}
