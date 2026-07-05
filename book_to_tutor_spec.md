@@ -230,9 +230,11 @@ The dry-run tests the **schema**, not the prose. The schema is the hypothesis; o
 
 **Dry-run article:** An Introduction to Statistical Learning (ISLR), Chapter 3, "Linear Regression." Chosen because regression concepts genuinely chain (real closure to test), it spans all four concept types, and it is material the developer keeps.
 
+**Staged atomization.** Atomize one section first — ISLR **§3.1, Simple Linear Regression** — and score it on the sheet before scaling to the rest of the chapter. One section already exercises the boundary rule and all four checks; proving §3.1 clean before atomizing the full chapter keeps a schema flaw from being copied across every atom in it.
+
 ### Step 0 (mandatory): extraction sanity check
 
-Before scoring anything, read the extracted text. Confirm equations, symbols, and tables came through intact. **If extraction is garbage, stop and fix extraction first.** A schema test on corrupt input is invalid, and its check failures would misdirect the fix. This step also empirically answers "which extractor for math books" rather than guessing.
+Before scoring anything, read the extracted text. Confirm equations, symbols, and tables came through intact. **If extraction is garbage, stop and fix extraction first.** A schema test on corrupt input is invalid, and its check failures would misdirect the fix. This step also empirically answers "which extractor for math books" rather than guessing. (Answered for the ISLR EPUB — see Section 16.)
 
 ### Step 4 (while reading): local checks, per atom
 
@@ -325,6 +327,26 @@ placement/assessment -> teach -> teach-back (Feynman) -> quiz -> schedule review
 4. **Fix loop** (if clustered fails) or **build the full pipeline** (if clean).
 5. **Tutor loop** (Section 13), after the schema survives the dry-run.
 6. **Deferred items** (Section 14), each when its trigger is met.
+
+---
+
+## 16. Extraction mechanics (source → clean text)
+
+*Validated by the Section 10 step-0 sanity check on the ISLR 1st-edition EPUB. These are findings about one source's encoding, not universal truths — re-run step 0 on every new book and format before trusting them. Implemented in `extract_chapter.py` (structure probe: `inspect_epub.py`).*
+
+**What step 0 found.** The ISLR EPUB encodes every equation as a **GIF image** (zero MathML), with the **LaTeX source in the image's `alt` attribute** (e.g. `alt="$$\hat{\beta}_{0}$$"`). Figures are GIFs too, but their `alt` is only a filename. Consequence: a naive `get_text()` **silently drops 100% of the equations** while looking complete — the single most dangerous failure mode for a math book, and exactly what step 0 exists to catch. (On ISLR Ch. 3: 206 GIFs → 185 equations recovered as LaTeX, 21 figures, plus 11 tables.)
+
+**The extractor is a DOM walker, never `get_text()`.** Walk the parsed document in reading order and emit text per node. Required transforms, each traced to a step-0 observation:
+
+- **Inline equation LaTeX.** Replace each equation image (`alt` starts with `$`) in place with its `alt` LaTeX. Block-level equation containers fall on their own line; inline ones stay inline. This is the load-bearing recovery — without it there is no math.
+- **Mark figures.** Replace figure images (`alt` not starting with `$`) with `[Figure: <filename>]`. Plots are not text; the placeholder records position without inventing content (fidelity rule: no invention).
+- **Tables as rows.** Render `<table>` structurally, `cell | cell` per row, caption kept. Tables are payload (coefficients, standard errors); flattening the grid into prose destroys it.
+- **Tighten sub/sup, no injected whitespace.** Source markup like `<span>β</span>⏎<sub>0</sub>` carries a formatting newline between inline nodes; a separator-based join turns it into `β 0`. Strip whitespace adjacent to `<sub>`/`<sup>` and concatenate inline runs with no separator, so subscripts stay tight (`β0`, `H0`, `R2`).
+- **Cleanup pass.** Drop typographic narrow/zero-width spaces (U+2009, U+202F, U+200A, U+200B) *before* whitespace normalization — otherwise the thin-spaced `<0.0001` collapses to `< 0. 0001`. Strip Springer frontmatter (copyright, author group, affiliations) and abstract-wrapper HTML comments. Drop margin-index term paragraphs that merely echo an adjacent emphasized term (a bare short paragraph whose text repeats an italicized term in a neighbouring paragraph) — but never drop R-lab code, which is distinguishable both by its own paragraph class and by not echoing emphasis.
+
+**Output.** Clean chapter text only — equations as LaTeX, tables as rows, figures as placeholders. No atomization at this stage; atomization consumes this text.
+
+**Step-0 rule (non-negotiable).** Always sanity-check the extracted text against the source *before* atomizing. A schema or atom test on corrupt extraction is invalid, and its failures misdirect the fix. Extraction fidelity is proven first — per book, per format — and only then does atomization begin.
 
 ---
 
